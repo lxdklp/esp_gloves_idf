@@ -1,13 +1,13 @@
-#include "wifi.h"
+#include <iostream>
+#include <cstring>
+#include <lwip/ip4_addr.h>
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "freertos/event_groups.h"
-#include <lwip/ip4_addr.h>
-#include <iostream>
-#include <cstring>
+#include "wifi.h"
 
 // WiFi 参数
 static const char* WIFI_SSID = "IoT";
@@ -44,14 +44,11 @@ static void wifi_event_handler(
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        
-        // 获取 MAC 地址
         uint8_t mac[6];
         esp_wifi_get_mac(WIFI_IF_STA, mac);
-        snprintf(g_network_info.mac, sizeof(g_network_info.mac), 
-                 "%02X:%02X:%02X:%02X:%02X:%02X",
-                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-        
+        snprintf(g_network_info.mac, sizeof(g_network_info.mac),
+                "%02X:%02X:%02X:%02X:%02X:%02X",
+                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         // 保存网络信息
         std::strncpy(g_network_info.ssid, WIFI_SSID, sizeof(g_network_info.ssid) - 1);
         std::strncpy(g_network_info.ip, ip4addr_ntoa((const ip4_addr_t*)&event->ip_info.ip), sizeof(g_network_info.ip) - 1);

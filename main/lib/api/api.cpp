@@ -1,15 +1,15 @@
-#include "api.h"
-#include "mpu/mpu.h"
-#include "wifi/wifi.h"
+#include <iostream>
+#include <cstring>
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_system.h"
 #include "esp_partition.h"
-#include <iostream>
-#include <cstring>
-
+#include "soc/rtc.h"
+#include "api.h"
+#include "mpu/mpu.h"
+#include "wifi/wifi.h"
 // 软件版本定义
 #define SOFTWARE_VERSION "1.0.0"
 #define SOFTWARE_NAME "ESP Gloves"
@@ -69,6 +69,10 @@ static esp_err_t info_get_handler(httpd_req_t *req)
     // 获取硬件信息
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
+    // 获取 CPU 频率
+    rtc_cpu_freq_config_t cpu_freq_config;
+    rtc_clk_cpu_freq_get_config(&cpu_freq_config);
+    uint8_t cpu_freq = cpu_freq_config.freq_mhz;
     // 获取 RAM 信息
     uint32_t free_heap = esp_get_free_heap_size();
     uint32_t min_free_heap = esp_get_minimum_free_heap_size();
@@ -104,6 +108,7 @@ static esp_err_t info_get_handler(httpd_req_t *req)
         "\"hardware\":{"
         "\"chip\":\"ESP32-C3\","
         "\"cores\":%d,"
+        "\"cpu_freq\":%d,"
         "\"revision\":%d,"
         "\"flash\":{"
         "\"total\":%lu,"
@@ -132,6 +137,7 @@ static esp_err_t info_get_handler(httpd_req_t *req)
         SOFTWARE_VERSION,
         esp_get_idf_version(),
         chip_info.cores,
+        cpu_freq,
         chip_info.revision,
         flash_size / 1024,
         total_used / 1024,
