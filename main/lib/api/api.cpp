@@ -1,47 +1,44 @@
-// C++ 标准库
 #include <cstring>
-
-// ESP-IDF 系统库
+#include <format>
+#include <string>
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_system.h"
 #include "esp_partition.h"
+#include "esp_heap_caps.h"
 #include "soc/rtc.h"
-
-// 项目头文件
 #include "api.hpp"
 #include "mpu/mpu.hpp"
 #include "wifi/wifi.hpp"
 
-static const char *TAG = "API";
-
-// 软件版本定义
 #define SOFTWARE_VERSION "1.0.0"
 #define SOFTWARE_NAME "ESP Gloves"
+
+static const char *TAG = "API";
 
 static httpd_handle_t server = NULL;
 
 // root
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
-    const char* response = "esp gloves";
+    const std::string response = "esp gloves";
     httpd_resp_set_type(req, "text/plain");
     httpd_resp_set_hdr(req, "Connection", "close");
-    httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    ESP_LOGI(TAG, "收到 GET 请求 / : %s", response);
+    httpd_resp_send(req, response.c_str(), response.length());
+    ESP_LOGI(TAG, "收到 GET 请求 / : %s", response.c_str());
     return ESP_OK;
 }
 
 // status
 static esp_err_t status_get_handler(httpd_req_t *req)
 {
-    const char* response = "{\"status\": \"ok\"}";
+    const std::string response = "{\"status\": \"ok\"}";
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Connection", "close");
-    httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    ESP_LOGI(TAG, "收到 GET 请求 /v1/status : %s", response);
+    httpd_resp_send(req, response.c_str(), response.length());
+    ESP_LOGI(TAG, "收到 GET 请求 /v1/status : %s", response.c_str());
     return ESP_OK;
 }
 
@@ -49,20 +46,20 @@ static esp_err_t status_get_handler(httpd_req_t *req)
 static esp_err_t mpu_get_handler(httpd_req_t *req)
 {
     int *data = mpu();
-    char response[128];
-    // 格式化成 JSON
-    snprintf(
-        response, sizeof(response),
-        "{"
-        "\"mpu1\": [%d, %d, %d],"
-        "\"mpu2\": [%d, %d, %d],"
-        "\"mpu3\": [%d, %d, %d]"
-        "}",
-        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8]
+    // 使用 std::format 构建 JSON
+    std::string response = std::format(
+        "{{"
+        "\"mpu1\": [{}, {}, {}],"
+        "\"mpu2\": [{}, {}, {}],"
+        "\"mpu3\": [{}, {}, {}]"
+        "}}",
+        data[0], data[1], data[2],
+        data[3], data[4], data[5],
+        data[6], data[7], data[8]
     );
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Connection", "close");
-    httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, response.c_str(), response.length());
     ESP_LOGI(TAG, "收到 GET 请求 /v1/mpu");
     return ESP_OK;
 }
@@ -83,6 +80,7 @@ static esp_err_t info_get_handler(httpd_req_t *req)
     // 获取 RAM 信息
     uint32_t free_heap = esp_get_free_heap_size();
     uint32_t min_free_heap = esp_get_minimum_free_heap_size();
+    uint32_t total_heap = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
     // 获取 Flash 信息
     uint32_t flash_size;
     esp_flash_get_size(NULL, &flash_size);
@@ -92,47 +90,46 @@ static esp_err_t info_get_handler(httpd_req_t *req)
     uint32_t data_size = data_partition ? data_partition->size : 0;
     uint32_t total_used = app_size + data_size;
     uint32_t total_available = flash_size - total_used;
-    // 响应
-    char response[1024];
-    // 格式化成 JSON
-    snprintf(
-        response, sizeof(response),
-        "{"
-        "\"network\":{"
-        "\"mac\":\"%s\","
-        "\"ssid\":\"%s\","
-        "\"ip\":\"%s\","
-        "\"netmask\":\"%s\","
-        "\"gateway\":\"%s\","
-        "\"dns1\":\"%s\","
-        "\"dns2\":\"%s\""
-        "},"
-        "\"software\":{"
-        "\"name\":\"%s\","
-        "\"version\":\"%s\","
-        "\"idf_version\":\"%s\""
-        "},"
-        "\"hardware\":{"
+    
+    // 使用 std::format 构建 JSON
+    std::string response = std::format(
+        "{{"
+        "\"network\":{{"
+        "\"mac\":\"{}\","
+        "\"ssid\":\"{}\","
+        "\"ip\":\"{}\","
+        "\"netmask\":\"{}\","
+        "\"gateway\":\"{}\","
+        "\"dns1\":\"{}\","
+        "\"dns2\":\"{}\""
+        "}},"
+        "\"software\":{{"
+        "\"name\":\"{}\","
+        "\"version\":\"{}\","
+        "\"idf_version\":\"{}\""
+        "}},"
+        "\"hardware\":{{"
         "\"chip\":\"ESP32-C3\","
-        "\"cores\":%d,"
-        "\"cpu_freq\":%d,"
-        "\"revision\":%d,"
-        "\"flash\":{"
-        "\"total\":%lu,"
-        "\"used\":%lu,"
-        "\"available\":%lu,"
-        "\"app_partition\":%lu,"
-        "\"data_partition\":%lu"
-        "},"
-        "\"ram\":{"
-        "\"free_heap\":%lu,"
-        "\"min_free_heap\":%lu"
-        "},"
-        "\"features\":{"
-        "\"wifi\":%s,"
-        "\"bt\":%s,"
-        "\"ble\":%s"
-        "}}}",
+        "\"cores\":{},"
+        "\"cpu_freq\":{},"
+        "\"revision\":{},"
+        "\"flash\":{{"
+        "\"total\":{},"
+        "\"used\":{},"
+        "\"available\":{},"
+        "\"app_partition\":{},"
+        "\"data_partition\":{}"
+        "}},"
+        "\"ram\":{{"
+        "\"total\":{},"
+        "\"free_heap\":{},"
+        "\"min_free_heap\":{}"
+        "}},"
+        "\"features\":{{"
+        "\"wifi\":{},"
+        "\"bt\":{},"
+        "\"ble\":{}"
+        "}}}}}}",
         net_info->mac,
         net_info->ssid,
         net_info->ip,
@@ -151,15 +148,17 @@ static esp_err_t info_get_handler(httpd_req_t *req)
         total_available / 1024,
         app_size / 1024,
         data_size / 1024,
+        total_heap / 1024,
         free_heap / 1024,
         min_free_heap / 1024,
         (chip_info.features & CHIP_FEATURE_WIFI_BGN) ? "true" : "false",
         (chip_info.features & CHIP_FEATURE_BT) ? "true" : "false",
         (chip_info.features & CHIP_FEATURE_BLE) ? "true" : "false"
     );
+    
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Connection", "close");
-    httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, response.c_str(), response.length());
     ESP_LOGI(TAG, "收到 GET 请求 /v1/info");
     return ESP_OK;
 }
@@ -167,11 +166,11 @@ static esp_err_t info_get_handler(httpd_req_t *req)
 // teapot
 static esp_err_t teapot_get_handler(httpd_req_t *req)
 {
-    const char* response = "I'm a teapot";
+    const std::string response = "I'm a teapot";
     httpd_resp_set_status(req, "418 I'm a teapot");
     httpd_resp_set_type(req, "text/plain");
     httpd_resp_set_hdr(req, "Connection", "close");
-    httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, response.c_str(), response.length());
     ESP_LOGI(TAG, "收到 GET 请求 /teapot");
     return ESP_OK;
 }
