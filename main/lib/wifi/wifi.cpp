@@ -1,4 +1,3 @@
-#include <iostream>
 #include <cstring>
 #include <lwip/ip4_addr.h>
 #include "esp_wifi.h"
@@ -7,7 +6,9 @@
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "freertos/event_groups.h"
-#include "wifi.h"
+#include "wifi.hpp"
+
+static const char *TAG = "WiFi";
 
 // WiFi 参数
 static const char* WIFI_SSID = "IoT";
@@ -33,14 +34,15 @@ static void wifi_event_handler(
 ) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
+        ESP_LOGI(TAG, "正在连接 Wi-Fi");
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         if (s_retry_num < MAXIMUM_RETRY) {
             esp_wifi_connect();
             s_retry_num++;
-            std::cout << "正在连接 Wi-Fi (" << s_retry_num << "/" << MAXIMUM_RETRY << ")" << std::endl;
+            ESP_LOGI(TAG, "正在连接 Wi-Fi (%d/%d)", s_retry_num, MAXIMUM_RETRY);
         } else {
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-            std::cout << "连接 Wi-Fi 失败" << std::endl;
+            ESP_LOGE(TAG, "连接 Wi-Fi 失败");
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
@@ -63,15 +65,17 @@ static void wifi_event_handler(
             std::strncpy(g_network_info.dns2, ip4addr_ntoa((const ip4_addr_t*)&dns_info.ip.u_addr.ip4), sizeof(g_network_info.dns2) - 1);
         }
         // 打印网络信息
-        std::cout << "========== Wi-Fi 连接成功 ==========" << std::endl;
-        std::cout << "SSID: " << g_network_info.ssid << std::endl;
-        std::cout << "MAC:  " << g_network_info.mac << std::endl;
-        std::cout << "IP:   " << g_network_info.ip << std::endl;
-        std::cout << "子网掩码:  " << g_network_info.netmask << std::endl;
-        std::cout << "网关:      " << g_network_info.gateway << std::endl;
-        std::cout << "主 DNS:    " << g_network_info.dns1 << std::endl;
-        std::cout << "备用 DNS:  " << g_network_info.dns2 << std::endl;
-        std::cout << "====================================" << std::endl;
+        ESP_LOGI(TAG, "========== Wi-Fi 连接成功 ==========");
+        ESP_LOGI(TAG, "SSID: %s", g_network_info.ssid);
+        ESP_LOGI(TAG, "MAC:  %s", g_network_info.mac);
+        ESP_LOGI(TAG, "IP:   %s", g_network_info.ip);
+        ESP_LOGI(TAG, "子网掩码: %s", g_network_info.netmask);
+        ESP_LOGI(TAG, "网关: %s", g_network_info.gateway);
+        ESP_LOGI(TAG, "主 DNS: %s", g_network_info.dns1);
+        if (g_network_info.dns2[0] != '\0') {
+            ESP_LOGI(TAG, "备用 DNS: %s", g_network_info.dns2);
+        }
+        ESP_LOGI(TAG, "====================================");
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
@@ -113,7 +117,7 @@ void wifi_init_sta(void)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-    std::cout << "WiFi 初始化完成" << std::endl;
+    ESP_LOGI(TAG, "WiFi 初始化完成");
     EventBits_t bits = xEventGroupWaitBits(
         s_wifi_event_group,
         WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
@@ -122,11 +126,11 @@ void wifi_init_sta(void)
         portMAX_DELAY
     );
     if (bits & WIFI_CONNECTED_BIT) {
-        std::cout << "连接 " << WIFI_SSID << " 成功" << std::endl;
+        ESP_LOGI(TAG, "连接 %s 成功", WIFI_SSID);
     } else if (bits & WIFI_FAIL_BIT) {
-        std::cout << "连接 " << WIFI_SSID << " 失败" << std::endl;
+        ESP_LOGE(TAG, "连接 %s 失败", WIFI_SSID);
     } else {
-        std::cout << "未预期的事件" << std::endl;
+        ESP_LOGW(TAG, "未预期的事件");
     }
 }
 

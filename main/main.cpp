@@ -1,8 +1,8 @@
 #include "freertos/FreeRTOS.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
-#include "wifi/wifi.h"
-#include "api/api.h"
+#include "wifi/wifi.hpp"
+#include "api/api.hpp"
 
 extern "C" void app_main(void)
 {

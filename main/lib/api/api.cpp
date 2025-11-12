@@ -1,5 +1,7 @@
-#include <iostream>
+// C++ 标准库
 #include <cstring>
+
+// ESP-IDF 系统库
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_chip_info.h"
@@ -7,9 +9,14 @@
 #include "esp_system.h"
 #include "esp_partition.h"
 #include "soc/rtc.h"
-#include "api.h"
-#include "mpu/mpu.h"
-#include "wifi/wifi.h"
+
+// 项目头文件
+#include "api.hpp"
+#include "mpu/mpu.hpp"
+#include "wifi/wifi.hpp"
+
+static const char *TAG = "API";
+
 // 软件版本定义
 #define SOFTWARE_VERSION "1.0.0"
 #define SOFTWARE_NAME "ESP Gloves"
@@ -23,7 +30,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "text/plain");
     httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    std::cout << "收到 GET 请求 / : " << response << std::endl;
+    ESP_LOGI(TAG, "收到 GET 请求 / : %s", response);
     return ESP_OK;
 }
 
@@ -34,7 +41,7 @@ static esp_err_t status_get_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    std::cout << "收到 GET 请求 /v1/status : " << response << std::endl;
+    ESP_LOGI(TAG, "收到 GET 请求 /v1/status : %s", response);
     return ESP_OK;
 }
 
@@ -56,7 +63,7 @@ static esp_err_t mpu_get_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    std::cout << "收到 GET 请求 /v1/mpu : " << response << std::endl;
+    ESP_LOGI(TAG, "收到 GET 请求 /v1/mpu");
     return ESP_OK;
 }
 
@@ -153,7 +160,7 @@ static esp_err_t info_get_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    std::cout << "收到 GET 请求 /v1/info" << std::endl;
+    ESP_LOGI(TAG, "收到 GET 请求 /v1/info");
     return ESP_OK;
 }
 
@@ -165,7 +172,7 @@ static esp_err_t teapot_get_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "text/plain");
     httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    std::cout << "收到 GET 请求 /teapot" << std::endl;
+    ESP_LOGI(TAG, "收到 GET 请求 /teapot");
     return ESP_OK;
 }
 
@@ -218,7 +225,7 @@ esp_err_t start_http_server(void)
     config.keep_alive_idle = 0;
     config.keep_alive_interval = 0;
     config.keep_alive_count = 0;
-    std::cout << "尝试在 " << config.server_port << " 端口启动 HTTP 服务器" << std::endl;
+    ESP_LOGI(TAG, "尝试在 %d 端口启动 HTTP 服务器", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK) {
         // 注册 URI 处理器
         httpd_register_uri_handler(server, &root_uri);
@@ -226,10 +233,10 @@ esp_err_t start_http_server(void)
         httpd_register_uri_handler(server, &mpu1_uri);
         httpd_register_uri_handler(server, &info_uri);
         httpd_register_uri_handler(server, &teapot_uri);
-        std::cout << "HTTP 服务器启动成功" << std::endl;
+        ESP_LOGI(TAG, "HTTP 服务器启动成功");
         return ESP_OK;
     }
-    std::cout << "HTTP 服务器启动失败" << std::endl;
+    ESP_LOGE(TAG, "HTTP 服务器启动失败");
     return ESP_FAIL;
 }
 
@@ -239,7 +246,7 @@ esp_err_t stop_http_server(void)
     if (server) {
         httpd_stop(server);
         server = NULL;
-        std::cout << "HTTP 服务器已停止" << std::endl;
+        ESP_LOGI(TAG, "HTTP 服务器已停止");
     }
     return ESP_OK;
 }
